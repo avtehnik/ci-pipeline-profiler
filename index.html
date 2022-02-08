@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <meta http-equiv="X-UA-Compatible" content="ie=edge"/>
+  <title>Controlling Colors in Timeline Chart</title>
+  <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.3.1/jquery.min.js"></script>
+
+  <link href="https://apexcharts.com/samples/assets/styles.css" rel="stylesheet"/>
+
+  <style>
+
+      #chart {
+          width: 100%;
+          height: 100%;
+      }
+
+      #holder {
+          font-family: sans-serif;
+          color: #8a8f96;
+          width: 100%;
+          height: 100px;
+          margin: 0 auto;
+          position: absolute;
+          z-index: 1;
+
+      }
+
+      #holder.hover {
+          border: 1px dashed #333;
+      }
+
+      #holder .success {
+          display: none;
+      }
+
+  </style>
+
+  <script>
+      window.Promise ||
+      document.write(
+          '<script src="https://cdn.jsdelivr.net/npm/promise-polyfill@8/dist/polyfill.min.js"><\/script>'
+      )
+      window.Promise ||
+      document.write(
+          '<script src="https://cdn.jsdelivr.net/npm/eligrey-classlist-js-polyfill@1.2.20171210/classList.min.js"><\/script>'
+      )
+      window.Promise ||
+      document.write(
+          '<script src="https://cdn.jsdelivr.net/npm/findindex_polyfill_mdn"><\/script>'
+      )
+  </script>
+
+
+  <script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
+
+
+  <script>
+      // Replace Math.random() with a pseudo-random number generator to get reproducible results in e2e tests
+      // Based on https://gist.github.com/blixt/f17b47c62508be59987b
+      var _seed = 42;
+      Math.random = function() {
+          _seed = _seed * 16807 % 2147483647;
+          return (_seed - 1) / 2147483646;
+      };
+  </script>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.22.2/moment.min.js"></script>
+</head>
+
+<body>
+<div id="holder">
+  Pipeline profiler<br>
+  <input type="file" id="fileElem" accept="*.json" onchange="onSelectFile(this.files)">
+  <div id="status">File API &amp; FileReader API not supported</div>
+</div>
+<div id="chart"></div>
+
+<script>
+    function drawChart(pipelines) {
+
+        function dateToText(date){
+            const month = String(date.getMonth()).padStart(2, '0');
+            const day = String(date.getDate()).padStart(2, '0');
+            const year = date.getFullYear();
+            const hours = String(date.getHours()).padStart(2, '0');
+            const minutes = String(date.getMinutes()).padStart(2, '0');
+            const seconds = String(date.getSeconds()).padStart(2, '0');
+            return day + '.' + month + '.' + year+ ' ' +  hours + ":" + minutes + ":" + seconds;
+        }
+
+        var colors = {
+            "e2e-lint-mr": "e2e-lint-mr",
+
+            "test-backend-staging": '#00E396',
+            "test-frontend-staging": '#00E396',
+            "test-backend-development":  '#00E396',
+            "test-frontend-development":  '#00E396',
+            "test-backend-mr":  '#00E396',
+            "test-auth-backend-mr":  '#00E396',
+            "test-authentication-mr":  '#00E396',
+            "test-auth-backend-staging":  '#00E396',
+            "test-authentication-staging":  '#00E396',
+            "test-dashboard-staging":  '#00E396',
+            "test-frontend-mr":  '#00E396',
+
+            "deploy-development": '#FF4560',
+            "deploy-staging": '#FF4560',
+
+            "update-node-modules-and-codegen-auth-backend-mr": '#FEB019',
+            "update-node-modules-mr":  '#FEB019',
+            "update-node-modules-and-codegen-auth-backend-staging": '#FEB019',
+            "update-node-modules-staging":  '#FEB019',
+            "update-node-modules-and-codegen-auth-backend-development":  '#FEB019',
+
+            "build-nginx-image-staging": '#008FFB',
+            "build-backend-image-staging": '#008FFB',
+            "build-frontend-image-development":'#008FFB',
+            "build-storybook-react-image-development": '#008FFB',
+            "build-frontend-multi-language-development": '#008FFB',
+            "build-frontend-single-language-development": '#008FFB',
+            "build-storybook-react-image-staging": '#008FFB',
+            "build-frontend-image-staging": '#008FFB',
+            "build-kitchensink-image-staging": '#008FFB',
+            "build-frontend-multi-language-staging": '#008FFB',
+            "build-frontend-single-language-staging": '#008FFB',
+            "build-auth-backend-staging": '#008FFB',
+            "build-frontend-single-language-mr": '#008FFB',
+            "build-auth-backend-mr": '#008FFB',
+            "build-storybook-react-image-mr": '#008FFB',
+            "build-frontend-multi-language-mr": '#008FFB',
+        }
+
+        var rows = [];
+        var ddd =  new Date(pipelines[0].created_at);
+        ddd.setHours(+2);
+        ddd.setSeconds(0);
+        ddd.setMinutes(0);
+
+        var zero = ddd.getTime();
+
+        pipelines.forEach(function(pipeline, index) {
+            var pipelineFrom = new Date(pipeline.created_at).getTime();
+            var pipelineTo = new Date(pipeline.finished_at).getTime();
+            var diff = new Date(pipeline.created_at).getTime() - zero;
+
+            pipeline.jobs.sort(function( a, b ) {
+                if ( new Date(a.started_at).getTime() < new Date(b.started_at).getTime() ){
+                    return -1;
+                }
+                if ( new Date(a.started_at).getTime() > new Date(b.started_at).getTime() ){
+                    return 1;
+                }
+                return 0;
+            }).forEach(function(job, index) {
+                var jobCreated = new Date(job.created_at).getTime();
+                var jobFrom = new Date(job.started_at).getTime();
+                var jobTo = new Date(job.finished_at).getTime();
+                rows.push(
+                    {
+                        x: job.name+' '+job.id,
+                        y: [jobCreated-diff, jobFrom-diff],
+                        fillColor: '#fae387',
+                        webUrl: job.web_url
+                    }
+                )
+                rows.push(
+                    {
+                        x: job.name+' '+job.id,
+                        y: [jobFrom-diff, jobTo-diff],
+                        fillColor: colors[job.name],
+                        webUrl: job.web_url
+                    }
+                )
+            });
+
+            rows.push(
+                {
+                    x: pipeline.id+' '+pipeline.title,
+                    y: [
+                        pipelineFrom-diff,
+                        pipelineTo-diff
+                    ],
+                    fillColor: '#FF0000',
+                    webUrl: pipeline.web_url
+                }
+            );
+
+            rows.push(
+                {
+                    x: pipeline.id+' '+pipeline.title+'s',
+                    y: [
+                        pipelineFrom-diff,
+                        pipelineTo-diff
+                    ],
+                    fillColor: '#ffffff'
+                }
+            );
+
+        })
+
+        var options = {
+            legend:{
+                show: true,
+            },
+            series: [
+                {
+                    data: rows
+                }
+            ],
+            chart: {
+                height: 1350,
+                type: 'rangeBar',
+                events: {
+                    click: function(event, chartContext, config) {
+                        navigator.clipboard.writeText( rows[config.dataPointIndex].webUrl);
+                    }
+                }
+            },
+            plotOptions: {
+                bar: {
+                    horizontal: true,
+                    distributed: true,
+                    dataLabels: {
+                        hideOverflowingLabels: false
+                    }
+                }
+            },
+            tooltip:{
+                custom: function({series, seriesIndex, dataPointIndex, w}) {
+                    return  rows[dataPointIndex]['x']+' <br> '+dateToText(new Date(series[seriesIndex][dataPointIndex]));
+                }
+            },
+            dataLabels: {
+                enabled: true,
+                formatter: function(val, opts) {
+                    var label = opts.w.globals.labels[opts.dataPointIndex]
+                    var a = moment(val[0])
+                    var b = moment(val[1])
+                    var diff = b.diff(a, 'minutes');
+                    if(diff>0){
+                        return diff + 'min';
+                    }
+                    return '';
+                },
+                style: {
+                    colors: [ '#782121']
+                }
+            },
+            xaxis: {
+                type: 'datetime'
+            },
+            yaxis: {
+                show: false
+            },
+            grid: {
+                row: {
+                    colors: ['#f3f4f5', '#fff'],
+                    opacity: 1
+                }
+            }
+        };
+
+        var chart = new ApexCharts(document.querySelector("#chart"), options);
+        chart.render();
+    }
+
+    function onSelectFile(files) {
+        Array.prototype.forEach.call(files, function(file) {
+
+            var reader = new FileReader();
+            reader.onload = function(e) {
+                var contents = e.target.result;
+                drawChart(JSON.parse(contents));
+            }
+            reader.readAsText(file);
+        });
+    }
+
+
+    $(document).ready(function() {
+
+        var holder = document.getElementById('holder'),
+            state = document.getElementById('status');
+
+        if (typeof window.FileReader === 'undefined') {
+            state.className = 'fail';
+        } else {
+            state.className = 'success';
+            // state.innerHTML = 'Garmin gpx 3d visualizer';
+        }
+
+        holder.ondragover = function() {
+            this.className = 'hover';
+            return false;
+        };
+        holder.ondragend = function() {
+            this.className = '';
+            return false;
+        };
+        holder.ondrop = function(e) {
+            this.className = '';
+            e.preventDefault();
+            onSelectFile(e.dataTransfer.files);
+            return false;
+        };
+
+
+        $.getJSON('data.json', function(pipelines) {
+            drawChart(pipelines.reverse())
+        });
+    });
+
+
+</script>
+
+
+</body>
+</html>
