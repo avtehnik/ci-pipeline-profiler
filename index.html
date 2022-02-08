@@ -36,6 +36,11 @@
           display: none;
       }
 
+      .legend-el{
+          margin: 3px;
+          padding: 3px;
+      }
+
   </style>
 
 </head>
@@ -47,7 +52,7 @@
   <div id="status">File API &amp; FileReader API not supported</div>
 </div>
 <div id="chart"></div>
-
+<div id="legend"></div>
 <script>
     function drawChart(pipelines) {
 
@@ -61,56 +66,35 @@
             return day + '.' + month + '.' + year + ' ' + hours + ":" + minutes + ":" + seconds;
         }
 
-        var colors = {
-            "e2e-lint-mr": "e2e-lint-mr",
+        function getRandomColor() {
+            var letters = '0123456789ABCDEF';
+            var color = '#';
+            for (var i = 0; i < 6; i++) {
+                color += letters[Math.floor(Math.random() * 16)];
+            }
+            return color;
+        }
 
-            "test-backend-staging": '#00E396',
-            "test-frontend-staging": '#00E396',
-            "test-backend-development": '#00E396',
-            "test-frontend-development": '#00E396',
-            "test-backend-mr": '#00E396',
-            "test-auth-backend-mr": '#00E396',
-            "test-authentication-mr": '#00E396',
-            "test-auth-backend-staging": '#00E396',
-            "test-authentication-staging": '#00E396',
-            "test-dashboard-staging": '#00E396',
-            "test-frontend-mr": '#00E396',
+        var durations = {};
 
-            "deploy-development": '#FF4560',
-            "deploy-staging": '#FF4560',
-
-            "update-node-modules-and-codegen-auth-backend-mr": '#FEB019',
-            "update-node-modules-mr": '#FEB019',
-            "update-node-modules-and-codegen-auth-backend-staging": '#FEB019',
-            "update-node-modules-staging": '#FEB019',
-            "update-node-modules-and-codegen-auth-backend-development": '#FEB019',
-
-            "build-nginx-image-staging": '#008FFB',
-            "build-backend-image-staging": '#008FFB',
-            "build-frontend-image-development": '#008FFB',
-            "build-storybook-react-image-development": '#008FFB',
-            "build-frontend-multi-language-development": '#008FFB',
-            "build-frontend-single-language-development": '#008FFB',
-            "build-storybook-react-image-staging": '#008FFB',
-            "build-frontend-image-staging": '#008FFB',
-            "build-kitchensink-image-staging": '#008FFB',
-            "build-frontend-multi-language-staging": '#008FFB',
-            "build-frontend-single-language-staging": '#008FFB',
-            "build-auth-backend-staging": '#008FFB',
-            "build-frontend-single-language-mr": '#008FFB',
-            "build-auth-backend-mr": '#008FFB',
-            "build-storybook-react-image-mr": '#008FFB',
-            "build-frontend-multi-language-mr": '#008FFB',
+        function addTime(job, start, end) {
+            var diff = parseFloat(((end - start) / 60000).toFixed(1));
+            if (durations.hasOwnProperty(job)) {
+                durations[job].push(diff);
+                console.log('add', job);
+            } else {
+                durations[job] = [diff];
+                console.log('new', job);
+            }
         }
 
         var rows = [];
-        var ddd = new Date(pipelines[0].created_at);
-        ddd.setHours(+2);
-        ddd.setSeconds(0);
-        ddd.setMinutes(0);
-
-        var zero = ddd.getTime();
-
+        var startDate = new Date();
+        startDate.setHours(+2);
+        startDate.setSeconds(0);
+        startDate.setMinutes(0);
+        var zero = startDate.getTime();
+        var jobColors = {};
         pipelines.forEach(function(pipeline, index) {
             var pipelineFrom = new Date(pipeline.created_at).getTime();
             var pipelineTo = new Date(pipeline.finished_at).getTime();
@@ -128,6 +112,13 @@
                 var jobCreated = new Date(job.created_at).getTime();
                 var jobFrom = new Date(job.started_at).getTime();
                 var jobTo = new Date(job.finished_at).getTime();
+
+                if (!jobColors.hasOwnProperty(job.name)) {
+                    jobColors[job.name] = getRandomColor();
+                }
+
+                addTime(job.name, jobFrom, jobTo);
+
                 rows.push(
                     {
                         x: job.name + ' ' + job.id,
@@ -140,7 +131,7 @@
                     {
                         x: job.name + ' ' + job.id,
                         y: [jobFrom - diff, jobTo - diff],
-                        fillColor: colors[job.name],
+                        fillColor: jobColors[job.name],
                         webUrl: job.web_url
                     }
                 )
@@ -163,13 +154,23 @@
                     x: pipeline.id + ' ' + pipeline.title + 's',
                     y: [
                         pipelineFrom - diff,
-                        pipelineTo - diff
+                        pipelineFrom - diff +1
                     ],
                     fillColor: '#ffffff'
                 }
             );
 
         })
+
+        $("#legend").innerHTML = '';
+        Object.keys(durations).forEach(function(key) {
+            var avrg = durations[key].reduce(function(a, b) {
+                return a + b
+            }, 0);
+            $("#legend").append('<div class="legend-el" style="background-color:'+jobColors[key]+' " >' + key +' - '+(avrg/durations[key].length ).toFixed(1)+ 'min</div>');
+        });
+
+        console.log(durations);
 
         var options = {
             legend: {
