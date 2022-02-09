@@ -36,7 +36,7 @@
           display: none;
       }
 
-      .legend-el{
+      .legend-el {
           margin: 3px;
           padding: 3px;
       }
@@ -154,7 +154,7 @@
                     x: pipeline.id + ' ' + pipeline.title + 's',
                     y: [
                         pipelineFrom - diff,
-                        pipelineFrom - diff +1
+                        pipelineFrom - diff + 1
                     ],
                     fillColor: '#ffffff'
                 }
@@ -167,7 +167,7 @@
             var avrg = durations[key].reduce(function(a, b) {
                 return a + b
             }, 0);
-            $("#legend").append('<div class="legend-el" style="background-color:'+jobColors[key]+' " >' + key +' - '+(avrg/durations[key].length ).toFixed(1)+ 'min</div>');
+            $("#legend").append('<div class="legend-el" style="background-color:' + jobColors[key] + ' " >' + key + ' - ' + (avrg / durations[key].length).toFixed(1) + 'min '+durations[key].length+'</div>');
         });
 
         console.log(durations);
@@ -182,7 +182,7 @@
                 }
             ],
             chart: {
-                height: 1350,
+                height: rows.length * 10,
                 type: 'rangeBar',
                 events: {
                     click: function(event, chartContext, config) {

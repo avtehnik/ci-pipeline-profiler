@@ -4,7 +4,7 @@
 class GItlab
 {
 
-    private $baseUrl = 'https://gitlab.com/api/v4';
+    private $baseUrl;
     private $pat;
 
     private $projectId;
@@ -14,10 +14,11 @@ class GItlab
      * @param $pat
      * @param $projectId
      */
-    public function __construct($pat, $projectId)
+    public function __construct($pat, $projectId, $url = null)
     {
         $this->pat = $pat;
         $this->projectId = $projectId;
+        $this->baseUrl = (empty($url) ? $url : 'https://gitlab.com/api/v4');
 
         $this->setVar('id', $this->projectId);
     }
@@ -41,11 +42,10 @@ class GItlab
 
     public function getPipelines()
     {
-
-
-        foreach ([0,1,3] as $page ){
-            $pipelines = $this->curlGet('/projects/:id/pipelines', ['scope' => 'finished', 'page'=>$page]);
-            foreach ($pipelines as &$pipeline) {
+        $pipelinesList = [];
+        foreach ([0,2,3] as $page) {
+            $pipelines = $this->curlGet('/projects/:id/pipelines', ['scope' => 'finished', 'page' => $page]);
+            foreach ($pipelines as $pipeline) {
                 $commit = $this->getCommit($pipeline->sha);
                 $pipeline = $this->getPipeline($pipeline->id);
                 echo 'title:  ' . $commit->title;
@@ -55,10 +55,10 @@ class GItlab
                 $pipeline->jobs = $this->getJobs($pipeline->id);
                 $pipeline->title = $commit->title;
                 echo PHP_EOL;
-//            $this->getJobs($pipeline->id);
+                $pipelinesList[] = $pipeline;
             }
         }
-        file_put_contents('data.json', json_encode($pipelines));
+        file_put_contents('data.json', json_encode($pipelinesList));
     }
 
     private function setVar($name, $value)
@@ -76,7 +76,6 @@ class GItlab
         foreach ($jobs as $job) {
             echo $job->duration . '  ' . $job->name . PHP_EOL;
         }
-
 //        print_r($jobs);
     }
 
@@ -135,9 +134,6 @@ class GItlab
 }
 
 
-//
-//$pat = 'glpat-f4RkynUADeeeHoU4bx3R';
-//$pid = '11513622';
 
-$g = new GItlab(getenv('GL_PAT'), getenv('GL_PROJECT_ID'));
+$g = new GItlab(getenv('GITLAB_PAT'), getenv('GITLAB_PROJECT_ID'), getenv('GITLAB_URL'));
 $g->getPipelines();
